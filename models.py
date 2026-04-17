@@ -1,9 +1,13 @@
 from datetime import date, datetime
 from typing import Annotated
 
-from pydantic import AnyUrl, BaseModel, Field, model_validator
+import rdflib
+from rdflib import Literal, RDF, URIRef
+from pydantic import BaseModel, Field, model_validator
 
-Url = Annotated[str, AnyUrl]
+SCHEMA = rdflib.Namespace("http://schema.org/")
+PULSE = rdflib.Namespace("https://open-pulse.epfl.ch/ontology#")
+ORG = rdflib.Namespace("http://www.w3.org/ns/org#")
 
 
 # ---------------------------------------------------------------------------
@@ -15,7 +19,7 @@ class Person(BaseModel):
     name: str
     github_username: str | None = None
     email: Annotated[str, Field(pattern=r'^[\w\-\.]+@([\w-]+\.)+[\w-]{2,4}$')] | None = None
-    url: Url | None = None
+    url: str | None = None
     orcid: Annotated[str, Field(pattern=r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$')] | None = None
     infoscience_id: str | None = None
     has_contribution: list[str] = []   # IRIs of pulse:Contribution
@@ -31,6 +35,49 @@ class Person(BaseModel):
                 'infoscience_id, orcid'
             )
         return self
+
+    def to_graph(self) -> rdflib.Graph:
+        g = rdflib.Graph()
+        iri = URIRef(self.iri)
+        g.add((iri, RDF.type, SCHEMA.Person))
+        g.add((iri, SCHEMA.name, Literal(self.name)))
+        if self.github_username:
+            g.add((iri, PULSE.githubUsername, Literal(self.github_username)))
+        if self.email:
+            g.add((iri, SCHEMA.email, Literal(self.email)))
+        if self.orcid:
+            g.add((iri, PULSE.orcidIdentifier, Literal(self.orcid)))
+        if self.infoscience_id:
+            g.add((iri, PULSE.infosciencePersonIdentifier, Literal(self.infoscience_id)))
+        if self.url:
+            g.add((iri, SCHEMA.url, URIRef(self.url)))
+        for contrib_iri in self.has_contribution:
+            ref = URIRef(contrib_iri)
+            g.add((iri, PULSE.hasContribution, ref))
+            g.add((ref, RDF.type, PULSE.Contribution))
+        for mem_iri in self.has_membership:
+            ref = URIRef(mem_iri)
+            g.add((iri, ORG.hasMembership, ref))
+            g.add((ref, RDF.type, ORG.Membership))
+        for repo_iri in self.owns:
+            ref = URIRef(repo_iri)
+            g.add((iri, PULSE.owns, ref))
+            g.add((ref, RDF.type, SCHEMA.SoftwareSourceCode))
+        return g
+
+    def merge(self, duplicate: 'Person') -> 'Person':
+        return Person(
+            iri=self.iri,
+            name=self.name,
+            github_username=self.github_username or duplicate.github_username,
+            email=self.email or duplicate.email,
+            orcid=self.orcid or duplicate.orcid,
+            infoscience_id=self.infoscience_id or duplicate.infoscience_id,
+            url=self.url or duplicate.url,
+            has_contribution=list(set(self.has_contribution) | set(duplicate.has_contribution)),
+            has_membership=list(set(self.has_membership) | set(duplicate.has_membership)),
+            owns=list(set(self.owns) | set(duplicate.owns)),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -75,8 +122,8 @@ class Repository(BaseModel):
     github_stars: int | None = None
     github_forks: int | None = None
     date_created: datetime | None = None
-    license: Url | None = None
-    citation: Url | None = None
+    license: str | None = None
+    citation: str | None = None
     programming_language: str | None = None
     owned_by: str | None = None        # IRI of Person or Organization
     is_fork_of: str | None = None      # IRI of schema:SoftwareSourceCode
