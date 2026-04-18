@@ -10,10 +10,11 @@ from validation import SHACLValidator
 
 log = logging.getLogger(__name__)
 
-ONTOLOGY_PATH = Path(__file__).parent / "ontology" / "ontology-combined.ttl"
+ONTOLOGY_PATH = Path(__file__).parent / "validation" / "ontology-combined.ttl"
 
 
 def _pick_canonical(iris: list[str], persons_by_iri: dict[str, Person]) -> str:
+    # Rank by: most complete record first, then shortest IRI, then alphabetical.
     def rank(iri: str) -> tuple:
         p = persons_by_iri.get(iri)
         completeness = sum(1 for v in [p.github_username, p.email, p.orcid, p.infoscience_id, p.url] if v) if p else 0
