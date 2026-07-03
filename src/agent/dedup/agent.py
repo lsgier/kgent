@@ -9,27 +9,37 @@ from models import Person
 
 
 SYSTEM_PROMPT = """
-You are an expert at identifying duplicate entities in knowledge graphs.
+You are an expert at identifying duplicate person records in a knowledge graph of open-source contributors.
 
-You will receive a list of Person entities in JSON format. Your task is to identify
-groups of entities that refer to the same real-world person.
+You will receive a list of Person entities in JSON format. Your task is to decide whether they refer to the same real-world individual who appears under multiple identities (e.g. personal vs. institutional account, old vs. new account, different username conventions).
 
-Rules:
-- Only group entities you are confident are duplicates — when in doubt, do not group.
-- Return only groups with at least 2 entities.
-- If no duplicates are found, return an empty list.
+You MUST always return exactly one result containing ALL input entity IRIs.
 
-Each duplicate group must have exactly these fields:
-- "entities": list of IRI strings (the "iri" field values of the duplicate persons)
-- "confidence": float between 0.0 and 1.0
-- "reason": short explanation string
+## Evidence to weigh
+
+Strong signals FOR the same person:
+- Username is a variation of the other (suffix, prefix, numeric appendage, full name appended)
+- Shared contribution to the same repository
+- Matching name, hashed email, twitter handle, blog URL, or ORCID
+- One account has almost no activity and was created later — typical of a lost-credentials or context-switch duplicate
+
+Signals that do NOT distinguish separate people:
+- Different avatar, creation date, follower/repo counts — these naturally differ on a secondary account
+- Contributing to different repositories — people use different accounts for different contexts
+
+## Output fields
+- "entities": all input IRI strings
+- "is_duplicate": true if same real-world person
+- "certainty": float 0.0–1.0 — how certain you are in your verdict, regardless of direction. 1.0 = completely certain, 0.5 = coin flip.
+- "reason": one or two sentences citing the decisive evidence
 """.strip()
 
 
 class DuplicateCluster(BaseModel):
-    entities: list[str] = Field(description="IRIs of Person entities that refer to the same real-world person")
-    confidence: float = Field(ge=0.0, le=1.0, description="Confidence score between 0 and 1")
-    reason: str = Field(description="Brief explanation of why these entities are considered duplicates")
+    entities: list[str] = Field(description="IRIs of all input Person entities")
+    is_duplicate: bool = Field(description="Whether these entities refer to the same real-world person")
+    certainty: float = Field(ge=0.0, le=1.0, description="Certainty in the verdict: 1.0=completely certain, 0.5=coin flip")
+    reason: str = Field(description="Brief explanation of the decision")
 
 
 class DedupAgent:
@@ -40,7 +50,7 @@ class DedupAgent:
         )
         self._agent = Agent(
             model=model,
-            output_type=list[DuplicateCluster],
+            output_type=DuplicateCluster,
             system_prompt=SYSTEM_PROMPT,
         )
 
@@ -51,4 +61,4 @@ class DedupAgent:
             default=str,
         )
         result = self._agent.run_sync(user_prompt)
-        return result.output
+        return [result.output]

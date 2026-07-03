@@ -37,29 +37,14 @@ class AuditLog:
         duplicate,
         confidence: float,
         reason: str,
-        validation_passed: bool,
-        violations: list[str] | None = None,
-        committed: bool = False,
     ) -> None:
         entry: dict = {
             "timestamp": _now(),
             "operation": "merge",
-            "status": "committed" if committed else "skipped",
             "confidence": confidence,
             "reason": reason,
-            "validation": "passed" if validation_passed else "failed",
             "canonical": canonical.model_dump(),
             "duplicate": duplicate.model_dump(),
         }
-        if violations:
-            entry["violations"] = violations
-
         _append(self._path, entry)
-
-        log.info(
-            "[audit] %s: %s → %s (%s)",
-            entry["status"],
-            duplicate.iri,
-            canonical.iri,
-            entry["validation"],
-        )
+        log.info("[audit] merge: %s → %s", duplicate.iri, canonical.iri)

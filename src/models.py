@@ -25,6 +25,17 @@ class Person(BaseModel):
     has_contribution: list[str] = []   # IRIs of pulse:Contribution
     has_membership: list[str] = []     # IRIs of org:Membership
     owns: list[str] = []               # IRIs of schema:SoftwareSourceCode
+    # GME enrichment fields — agent context only, not written back to the graph
+    bio: str | None = None
+    location: str | None = None
+    company: str | None = None
+    blog: str | None = None
+    twitter_username: str | None = None
+    avatar_url: str | None = None
+    github_created_at: str | None = None
+    github_updated_at: str | None = None
+    public_repos: int | None = None
+    followers_count: int | None = None
 
     @model_validator(mode='after')
     def at_least_one_identifier(self) -> 'Person':
