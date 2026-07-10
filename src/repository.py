@@ -22,11 +22,13 @@ class KnowledgeGraphRepository:
         self._sparql.setReturnFormat(JSON)
         self._sparql_log = sparql_log
 
+    # Unwrap an OPTIONAL binding; None if that SPARQL variable wasn't matched.
     @staticmethod
     def _val(binding: dict[str, Any], key: str) -> str | None:
         entry = binding.get(key)
         return entry["value"] if entry else None
 
+    # Unwrap a required binding; raises if missing (a query/data bug, not an absent value).
     @staticmethod
     def _req(binding: dict[str, Any], key: str) -> str:
         entry = binding.get(key)
@@ -34,10 +36,12 @@ class KnowledgeGraphRepository:
             raise ValueError(f"Required SPARQL binding '{key}' is missing")
         return entry["value"]
 
+    # Turn a GROUP_CONCAT'd IRI string back into a list, dropping empty entries.
     @staticmethod
     def _split_iris(val: str | None) -> list[str]:
         return [v for v in (val or "").split(",") if v]
 
+    # Run a SPARQL query, logging it first if a SPARQLLog is configured.
     def _query(self, sparql: str) -> list[dict[str, Any]]:
         if self._sparql_log:
             self._sparql_log.log("query", sparql)
