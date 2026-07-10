@@ -12,6 +12,8 @@ PREFIXES = """
     PREFIX org:    <http://www.w3.org/ns/org#>
 """
 
+PAGE_SIZE = 5000
+
 
 class KnowledgeGraphRepository:
     def __init__(self, endpoint: str, sparql_log: SPARQLLog | None = None):
@@ -66,38 +68,48 @@ class KnowledgeGraphRepository:
         response.raise_for_status()
 
     def get_persons(self) -> list[Person]:
-        rows = self._query(f"""
-            {PREFIXES}
-            SELECT ?iri ?name ?github ?email ?orcid ?infoscience ?url
-                   (GROUP_CONCAT(DISTINCT ?contribution; SEPARATOR=",") AS ?contributions)
-                   (GROUP_CONCAT(DISTINCT ?membership; SEPARATOR=",") AS ?memberships)
-                   (GROUP_CONCAT(DISTINCT ?owns; SEPARATOR=",") AS ?ownedRepos)
-            WHERE {{
-                ?iri a schema:Person ;
-                     schema:name ?name .
-                OPTIONAL {{ ?iri pulse:githubUsername ?github }}
-                OPTIONAL {{ ?iri schema:email ?email }}
-                OPTIONAL {{ ?iri pulse:orcidIdentifier ?orcid }}
-                OPTIONAL {{ ?iri pulse:infosciencePersonIdentifier ?infoscience }}
-                OPTIONAL {{ ?iri schema:url ?url }}
-                OPTIONAL {{ ?iri pulse:hasContribution ?contribution }}
-                OPTIONAL {{ ?iri org:hasMembership ?membership }}
-                OPTIONAL {{ ?iri pulse:owns ?owns }}
-            }}
-            GROUP BY ?iri ?name ?github ?email ?orcid ?infoscience ?url
-        """)
-        return [
-            Person(
-                iri=self._req(r, "iri"),
-                name=self._req(r, "name"),
-                github_username=self._val(r, "github"),
-                email=self._val(r, "email"),
-                orcid=self._val(r, "orcid"),
-                infoscience_id=self._val(r, "infoscience"),
-                url=self._val(r, "url"),
-                has_contribution=self._split_iris(self._val(r, "contributions")),
-                has_membership=self._split_iris(self._val(r, "memberships")),
-                owns=self._split_iris(self._val(r, "ownedRepos")),
-            )
-            for r in rows
-        ]
+        persons_by_iri: dict[str, Person] = {}
+        page = 0
+        while True:
+            rows = self._query(f"""
+                {PREFIXES}
+                SELECT ?iri (GROUP_CONCAT(DISTINCT ?name; SEPARATOR=" / ") AS ?name) (SAMPLE(?github) AS ?github)
+                       (SAMPLE(?email) AS ?email) (SAMPLE(?orcid) AS ?orcid)
+                       (SAMPLE(?infoscience) AS ?infoscience) (SAMPLE(?url) AS ?url)
+                       (GROUP_CONCAT(DISTINCT ?contribution; SEPARATOR=",") AS ?contributions)
+                       (GROUP_CONCAT(DISTINCT ?membership; SEPARATOR=",") AS ?memberships)
+                       (GROUP_CONCAT(DISTINCT ?owns; SEPARATOR=",") AS ?ownedRepos)
+                WHERE {{
+                    ?iri a schema:Person ;
+                         schema:name ?name .
+                    OPTIONAL {{ ?iri pulse:githubUsername ?github }}
+                    OPTIONAL {{ ?iri schema:email ?email }}
+                    OPTIONAL {{ ?iri pulse:orcidIdentifier ?orcid }}
+                    OPTIONAL {{ ?iri pulse:infosciencePersonIdentifier ?infoscience }}
+                    OPTIONAL {{ ?iri schema:url ?url }}
+                    OPTIONAL {{ ?iri pulse:hasContribution ?contribution }}
+                    OPTIONAL {{ ?iri org:hasMembership ?membership }}
+                    OPTIONAL {{ ?iri pulse:owns ?owns }}
+                }}
+                GROUP BY ?iri
+                ORDER BY ?iri
+                LIMIT {PAGE_SIZE} OFFSET {page * PAGE_SIZE}
+            """)
+            if not rows:
+                break
+            for r in rows:
+                iri = self._req(r, "iri")
+                persons_by_iri[iri] = Person(
+                    iri=iri,
+                    name=self._req(r, "name"),
+                    github_username=self._val(r, "github"),
+                    email=self._val(r, "email"),
+                    orcid=self._val(r, "orcid"),
+                    infoscience_id=self._val(r, "infoscience"),
+                    url=self._val(r, "url"),
+                    has_contribution=self._split_iris(self._val(r, "contributions")),
+                    has_membership=self._split_iris(self._val(r, "memberships")),
+                    owns=self._split_iris(self._val(r, "ownedRepos")),
+                )
+            page += 1
+        return list(persons_by_iri.values())
