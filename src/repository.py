@@ -1,6 +1,5 @@
 from typing import Any
 
-import requests
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 from audit import SPARQLLog
@@ -17,7 +16,6 @@ PAGE_SIZE = 5000
 
 class KnowledgeGraphRepository:
     def __init__(self, endpoint: str, sparql_log: SPARQLLog | None = None):
-        self._endpoint = endpoint
         self._sparql = SPARQLWrapper(endpoint)
         self._sparql.setReturnFormat(JSON)
         self._sparql_log = sparql_log
@@ -50,26 +48,6 @@ class KnowledgeGraphRepository:
         if not isinstance(result, dict):
             raise ValueError(f"Unexpected SPARQL response type: {type(result)}")
         return result["results"]["bindings"]
-
-    def merge_persons(self, canonical_iri: str, duplicate_iri: str) -> None:
-        update = f"""
-            DELETE {{ <{duplicate_iri}> ?p ?o }}
-            INSERT {{ <{canonical_iri}> ?p ?o }}
-            WHERE  {{ <{duplicate_iri}> ?p ?o }} ;
-
-            DELETE {{ ?s ?p <{duplicate_iri}> }}
-            INSERT {{ ?s ?p <{canonical_iri}> }}
-            WHERE  {{ ?s ?p <{duplicate_iri}> }}
-        """
-        if self._sparql_log:
-            self._sparql_log.log("update", update)
-        response = requests.post(
-            self._endpoint + "/statements",
-            data={"update": update},
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            timeout=30,
-        )
-        response.raise_for_status()
 
     def get_persons(self) -> list[Person]:
         persons_by_iri: dict[str, Person] = {}

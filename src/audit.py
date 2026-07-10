@@ -31,7 +31,7 @@ class AuditLog:
     def __init__(self, path: Path):
         self._path = path
 
-    def log_merge(
+    def log_duplicate(
         self,
         canonical,
         duplicate,
@@ -40,11 +40,11 @@ class AuditLog:
     ) -> None:
         entry: dict = {
             "timestamp": _now(),
-            "operation": "merge",
+            "operation": "duplicate_found",
             "confidence": confidence,
             "reason": reason,
             "canonical": canonical.model_dump(),
             "duplicate": duplicate.model_dump(),
         }
         _append(self._path, entry)
-        log.info("[audit] merge: %s → %s", duplicate.iri, canonical.iri)
+        log.info("[audit] duplicate found: %s ~ %s (confidence %.2f)", duplicate.iri, canonical.iri, confidence)

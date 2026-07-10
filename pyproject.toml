@@ -8,15 +8,5 @@ dependencies = [
     "pydantic>=2.13.1",
     "pydantic-ai>=1.83.0",
     "python-dotenv>=1.2.2",
-    "requests>=2.33.1",
     "sparqlwrapper>=2.0.0",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.3",
 ]

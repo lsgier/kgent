@@ -40,6 +40,7 @@ def run() -> None:
         clusters.extend(agent.find_duplicates(person_cluster))
     log.info("Found %d duplicate clusters", len(clusters))
 
+    found = 0
     for cluster in clusters:
         if not cluster.is_duplicate:
             log.info("Skipping non-duplicate (certainty %.2f): %s", cluster.certainty, cluster.reason)
@@ -50,10 +51,12 @@ def run() -> None:
         for dup_iri in duplicate_iris:
             canonical = persons_by_iri[canonical_iri]
             duplicate = persons_by_iri[dup_iri]
-            repo.merge_persons(canonical_iri, dup_iri)
-            audit.log_merge(
+            audit.log_duplicate(
                 canonical=canonical,
                 duplicate=duplicate,
                 confidence=cluster.certainty,
                 reason=cluster.reason,
             )
+            found += 1
+
+    log.info("Found %d duplicates, presented for review in %s (not merged)", found, AUDIT_LOG_PATH)

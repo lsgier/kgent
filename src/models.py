@@ -39,17 +39,3 @@ class Person(BaseModel):
                 'infoscience_id, orcid'
             )
         return self
-
-    def merge(self, duplicate: 'Person') -> 'Person':
-        return Person(
-            iri=self.iri,
-            name=self.name,
-            github_username=self.github_username or duplicate.github_username,
-            email=self.email or duplicate.email,
-            orcid=self.orcid or duplicate.orcid,
-            infoscience_id=self.infoscience_id or duplicate.infoscience_id,
-            url=self.url or duplicate.url,
-            has_contribution=list(set(self.has_contribution) | set(duplicate.has_contribution)),
-            has_membership=list(set(self.has_membership) | set(duplicate.has_membership)),
-            owns=list(set(self.owns) | set(duplicate.owns)),
-        )

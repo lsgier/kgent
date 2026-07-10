@@ -1247,7 +1247,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
-    { name = "requests" },
     { name = "sparqlwrapper" },
 ]
 
@@ -1261,7 +1260,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.1" },
     { name = "pydantic-ai", specifier = ">=1.83.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
-    { name = "requests", specifier = ">=2.33.1" },
     { name = "sparqlwrapper", specifier = ">=2.0.0" },
 ]
 
