@@ -5,8 +5,22 @@ description = "Agentic knowledge graph enrichment"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "faiss-cpu>=1.14.3",
+    "httpx>=0.28.1",
+    "numpy>=2.5.1",
     "pydantic>=2.13.1",
     "pydantic-ai>=1.83.0",
     "python-dotenv>=1.2.2",
+    "scipy>=1.18.0",
     "sparqlwrapper>=2.0.0",
 ]
+
+# Tunable parameters (committed for reproducibility; secrets/endpoints stay in .env).
+[tool.kgent.cluster]
+k = 20            # FAISS nearest neighbours per person
+threshold = 0.95  # cosine similarity above which two persons are linked
+
+[tool.kgent.embedding]
+model = "Qwen/Qwen3-Embedding-8B"
+batch_size = 64   # persons per embedding request
+concurrency = 6   # parallel embedding requests

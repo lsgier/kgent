@@ -1,9 +1,13 @@
+import logging
 from typing import Any
 
+from pydantic import ValidationError
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 from audit import SPARQLLog
 from models import Person
+
+log = logging.getLogger(__name__)
 
 PREFIXES = """
     PREFIX schema: <http://schema.org/>
@@ -11,7 +15,42 @@ PREFIXES = """
     PREFIX org:    <http://www.w3.org/ns/org#>
 """
 
+# Namespace -> prefix, used to shorten predicate URIs into readable bag keys.
+NAMESPACES = {
+    "http://schema.org/": "schema:",
+    "https://open-pulse.epfl.ch/ontology#": "pulse:",
+    "http://www.w3.org/ns/org#": "org:",
+    "https://openpulse.science/git-metadata-extractor#": "gme:",
+    "http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf:",
+}
+
+# Prefixed predicate -> single-valued Person field.
+_SCALAR_FIELDS = {
+    "pulse:githubUsername": "github_username",
+    "schema:email": "email",
+    "pulse:orcidIdentifier": "orcid",
+    "pulse:infosciencePersonIdentifier": "infoscience_id",
+    "schema:url": "url",
+    "gme:bio": "bio",
+    "gme:location": "location",
+    "gme:company": "company",
+}
+
+# Prefixed predicate -> multi-valued (IRI list) Person field.
+_LIST_FIELDS = {
+    "pulse:hasContribution": "has_contribution",
+    "org:hasMembership": "has_membership",
+    "pulse:owns": "owns",
+}
+
 PAGE_SIZE = 5000
+
+
+def _shorten(uri: str) -> str:
+    for base, prefix in NAMESPACES.items():
+        if uri.startswith(base):
+            return prefix + uri[len(base):]
+    return uri
 
 
 class KnowledgeGraphRepository:
@@ -19,25 +58,6 @@ class KnowledgeGraphRepository:
         self._sparql = SPARQLWrapper(endpoint)
         self._sparql.setReturnFormat(JSON)
         self._sparql_log = sparql_log
-
-    # Unwrap an OPTIONAL binding; None if that SPARQL variable wasn't matched.
-    @staticmethod
-    def _val(binding: dict[str, Any], key: str) -> str | None:
-        entry = binding.get(key)
-        return entry["value"] if entry else None
-
-    # Unwrap a required binding; raises if missing (a query/data bug, not an absent value).
-    @staticmethod
-    def _req(binding: dict[str, Any], key: str) -> str:
-        entry = binding.get(key)
-        if not entry:
-            raise ValueError(f"Required SPARQL binding '{key}' is missing")
-        return entry["value"]
-
-    # Turn a GROUP_CONCAT'd IRI string back into a list, dropping empty entries.
-    @staticmethod
-    def _split_iris(val: str | None) -> list[str]:
-        return [v for v in (val or "").split(",") if v]
 
     # Run a SPARQL query, logging it first if a SPARQLLog is configured.
     def _query(self, sparql: str) -> list[dict[str, Any]]:
@@ -50,48 +70,59 @@ class KnowledgeGraphRepository:
         return result["results"]["bindings"]
 
     def get_persons(self) -> list[Person]:
-        persons_by_iri: dict[str, Person] = {}
+        persons: list[Person] = []
         page = 0
         while True:
+            # Pull every triple for a page of persons; the inner subquery paginates on
+            # persons (not triples) so a person's properties never span two pages.
             rows = self._query(f"""
                 {PREFIXES}
-                SELECT ?iri (GROUP_CONCAT(DISTINCT ?name; SEPARATOR=" / ") AS ?name) (SAMPLE(?github) AS ?github)
-                       (SAMPLE(?email) AS ?email) (SAMPLE(?orcid) AS ?orcid)
-                       (SAMPLE(?infoscience) AS ?infoscience) (SAMPLE(?url) AS ?url)
-                       (GROUP_CONCAT(DISTINCT ?contribution; SEPARATOR=",") AS ?contributions)
-                       (GROUP_CONCAT(DISTINCT ?membership; SEPARATOR=",") AS ?memberships)
-                       (GROUP_CONCAT(DISTINCT ?owns; SEPARATOR=",") AS ?ownedRepos)
-                WHERE {{
-                    ?iri a schema:Person ;
-                         schema:name ?name .
-                    OPTIONAL {{ ?iri pulse:githubUsername ?github }}
-                    OPTIONAL {{ ?iri schema:email ?email }}
-                    OPTIONAL {{ ?iri pulse:orcidIdentifier ?orcid }}
-                    OPTIONAL {{ ?iri pulse:infosciencePersonIdentifier ?infoscience }}
-                    OPTIONAL {{ ?iri schema:url ?url }}
-                    OPTIONAL {{ ?iri pulse:hasContribution ?contribution }}
-                    OPTIONAL {{ ?iri org:hasMembership ?membership }}
-                    OPTIONAL {{ ?iri pulse:owns ?owns }}
+                SELECT ?iri ?p ?o WHERE {{
+                    {{
+                        SELECT ?iri WHERE {{ ?iri a schema:Person }}
+                        ORDER BY ?iri LIMIT {PAGE_SIZE} OFFSET {page * PAGE_SIZE}
+                    }}
+                    ?iri ?p ?o .
                 }}
-                GROUP BY ?iri
                 ORDER BY ?iri
-                LIMIT {PAGE_SIZE} OFFSET {page * PAGE_SIZE}
             """)
             if not rows:
                 break
-            for r in rows:
-                iri = self._req(r, "iri")
-                persons_by_iri[iri] = Person(
-                    iri=iri,
-                    name=self._req(r, "name"),
-                    github_username=self._val(r, "github"),
-                    email=self._val(r, "email"),
-                    orcid=self._val(r, "orcid"),
-                    infoscience_id=self._val(r, "infoscience"),
-                    url=self._val(r, "url"),
-                    has_contribution=self._split_iris(self._val(r, "contributions")),
-                    has_membership=self._split_iris(self._val(r, "memberships")),
-                    owns=self._split_iris(self._val(r, "ownedRepos")),
-                )
+            for iri, props in self._group_by_subject(rows).items():
+                person = self._build_person(iri, props)
+                if person:
+                    persons.append(person)
             page += 1
-        return list(persons_by_iri.values())
+        return persons
+
+    # Collapse (subject, predicate, object) rows into {iri: {prefixed_predicate: [values]}}.
+    @staticmethod
+    def _group_by_subject(rows: list[dict[str, Any]]) -> dict[str, dict[str, list[str]]]:
+        grouped: dict[str, dict[str, list[str]]] = {}
+        for r in rows:
+            iri = r["iri"]["value"]
+            pred = _shorten(r["p"]["value"])
+            obj = r["o"]["value"]
+            values = grouped.setdefault(iri, {}).setdefault(pred, [])
+            if obj not in values:
+                values.append(obj)
+        return grouped
+
+    # Map a full property bag onto a Person; skip (with a warning) if it fails validation.
+    @staticmethod
+    def _build_person(iri: str, props: dict[str, list[str]]) -> Person | None:
+        names = props.get("schema:name")
+        if not names:
+            return None
+        fields: dict[str, Any] = {"iri": iri, "name": " / ".join(names), "properties": props}
+        for pred, field in _SCALAR_FIELDS.items():
+            if pred in props:
+                fields[field] = props[pred][0]
+        for pred, field in _LIST_FIELDS.items():
+            if pred in props:
+                fields[field] = props[pred]
+        try:
+            return Person(**fields)
+        except ValidationError as e:
+            log.warning("Skipping person %s: %s", iri, e)
+            return None

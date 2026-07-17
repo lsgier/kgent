@@ -8,10 +8,13 @@ def cluster_persons(
     api_url: str,
     api_key: str,
     model: str,
-    k: int = 20,
-    threshold: float = 0.95,
+    k: int,
+    threshold: float,
+    batch_size: int,
+    concurrency: int,
 ) -> list[list[Person]]:
     """Embed and cluster persons. Returns clusters (singletons excluded)."""
-    embeddings = embed_persons(persons, api_url, model=model, api_key=api_key)
+    embeddings = embed_persons(persons, api_url, api_key=api_key, model=model,
+                               batch_size=batch_size, concurrency=concurrency)
     index_clusters = cluster(embeddings, k=k, threshold=threshold)
     return [[persons[i] for i in idxs] for idxs in index_clusters]

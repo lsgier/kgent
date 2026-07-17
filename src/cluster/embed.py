@@ -6,9 +6,6 @@ import numpy as np
 
 from models import Person
 
-BATCH_SIZE  = 64
-CONCURRENCY = 6
-
 
 def _text(p: Person) -> str:
     parts = [p.name]
@@ -18,9 +15,10 @@ def _text(p: Person) -> str:
     return " ".join(parts)
 
 
-def embed_persons(persons: list[Person], api_url: str, api_key: str, model: str) -> np.ndarray:
+def embed_persons(persons: list[Person], api_url: str, api_key: str, model: str,
+                  batch_size: int, concurrency: int) -> np.ndarray:
     texts   = [_text(p) for p in persons]
-    batches = [texts[i: i + BATCH_SIZE] for i in range(0, len(texts), BATCH_SIZE)]
+    batches = [texts[i: i + batch_size] for i in range(0, len(texts), batch_size)]
     results: dict[int, list] = {}
 
     def fetch(idx: int) -> tuple[int, list]:
@@ -43,7 +41,7 @@ def embed_persons(persons: list[Person], api_url: str, api_key: str, model: str)
                 time.sleep(wait)
         raise RuntimeError(f"Embedding batch {idx} failed after 6 attempts")
 
-    with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
         for future in as_completed(pool.submit(fetch, i) for i in range(len(batches))):
             idx, embs = future.result()
             results[idx] = embs

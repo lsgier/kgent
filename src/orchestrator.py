@@ -4,7 +4,10 @@ from pathlib import Path
 from agent import DedupAgent
 from audit import AuditLog, SPARQLLog
 from cluster import cluster_persons
-from config import AUDIT_LOG_PATH, EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, SPARQL_ENDPOINT, SPARQL_LOG_PATH
+from config import (
+    AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE, EMBED_CONCURRENCY,
+    EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, SPARQL_ENDPOINT, SPARQL_LOG_PATH,
+)
 from models import Person
 from repository import KnowledgeGraphRepository
 
@@ -31,7 +34,10 @@ def run() -> None:
     persons_by_iri = {p.iri: p for p in all_persons}
 
     log.info("Clustering persons...")
-    person_clusters = cluster_persons(all_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL)
+    person_clusters = cluster_persons(
+        all_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
+        k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY,
+    )
     log.info("Found %d candidate clusters", len(person_clusters))
 
     log.info("Running deduplication agent...")
