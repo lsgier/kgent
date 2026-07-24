@@ -15,6 +15,7 @@ LLM_API_KEY = os.environ["LLM_API_KEY"]
 LLM_MODEL = os.environ["LLM_MODEL"]
 AUDIT_LOG_PATH  = os.getenv("AUDIT_LOG_PATH", "audit.jsonl")
 SPARQL_LOG_PATH = os.getenv("SPARQL_LOG_PATH", "sparql.jsonl")
+LLM_LOG_PATH    = os.getenv("LLM_LOG_PATH", "llm.jsonl")
 
 # Tunable parameters — committed in pyproject.toml [tool.kgent] for reproducibility.
 _params = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())["tool"]["kgent"]

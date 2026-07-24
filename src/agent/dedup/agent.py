@@ -5,6 +5,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
+from audit import LLMLog
 from models import Person
 
 
@@ -43,7 +44,7 @@ class DuplicateCluster(BaseModel):
 
 
 class DedupAgent:
-    def __init__(self, model_name: str, base_url: str, api_key: str):
+    def __init__(self, model_name: str, base_url: str, api_key: str, llm_log: LLMLog | None = None):
         model = OpenAIChatModel(
             model_name,
             provider=OpenAIProvider(base_url=base_url, api_key=api_key),
@@ -53,6 +54,7 @@ class DedupAgent:
             output_type=DuplicateCluster,
             system_prompt=SYSTEM_PROMPT,
         )
+        self._llm_log = llm_log
 
     def find_duplicates(self, persons: list[Person]) -> list[DuplicateCluster]:
         user_prompt = json.dumps(
@@ -61,4 +63,6 @@ class DedupAgent:
             default=str,
         )
         result = self._agent.run_sync(user_prompt)
+        if self._llm_log:
+            self._llm_log.log(user_prompt, result.output.model_dump())
         return [result.output]

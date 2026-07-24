@@ -27,6 +27,18 @@ class SPARQLLog:
         })
 
 
+class LLMLog:
+    def __init__(self, path: Path):
+        self._path = path
+
+    def log(self, prompt: str, response: dict) -> None:
+        _append(self._path, {
+            "timestamp": _now(),
+            "prompt": prompt,
+            "response": response,
+        })
+
+
 class AuditLog:
     def __init__(self, path: Path):
         self._path = path

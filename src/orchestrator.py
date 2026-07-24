@@ -2,12 +2,12 @@ import logging
 from pathlib import Path
 
 from agent import DedupAgent
-from audit import AuditLog, SPARQLLog
+from audit import AuditLog, LLMLog, SPARQLLog
 from cluster import cluster_persons
 from config import (
     AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE, EMBED_CONCURRENCY,
-    EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, SPARQL_ENDPOINT, SPARQL_LOG_PATH,
-    SPARQL_USER, SPARQL_PASSWORD,
+    EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL, SPARQL_ENDPOINT,
+    SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD,
 )
 from models import Person
 from repository import KnowledgeGraphRepository
@@ -27,7 +27,8 @@ def run() -> None:
     sparql_log = SPARQLLog(Path(SPARQL_LOG_PATH))
     repo = KnowledgeGraphRepository(SPARQL_ENDPOINT, sparql_log=sparql_log,
                                     user=SPARQL_USER, password=SPARQL_PASSWORD)
-    agent = DedupAgent(model_name=LLM_MODEL, base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    llm_log = LLMLog(Path(LLM_LOG_PATH))
+    agent = DedupAgent(model_name=LLM_MODEL, base_url=LLM_BASE_URL, api_key=LLM_API_KEY, llm_log=llm_log)
     audit = AuditLog(Path(AUDIT_LOG_PATH))
 
     log.info("Fetching persons...")

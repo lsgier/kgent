@@ -8,3 +8,4 @@ dist/
 .python-version
 audit.jsonl
 sparql.jsonl
+llm.jsonl
