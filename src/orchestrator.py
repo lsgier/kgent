@@ -5,9 +5,9 @@ from agent import DedupAgent
 from audit import AuditLog, LLMLog, SPARQLLog
 from cluster import cluster_persons
 from config import (
-    AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE, EMBED_CONCURRENCY,
-    EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL, SPARQL_ENDPOINT,
-    SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD,
+    AGENT_MAX_CLUSTER_SIZE, AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE,
+    EMBED_CONCURRENCY, EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL,
+    SPARQL_ENDPOINT, SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD,
 )
 from models import Person
 from repository import KnowledgeGraphRepository
@@ -63,9 +63,23 @@ def run() -> None:
 
     log.info("Running deduplication agent...")
     clusters = []
+    skipped_oversized = 0
+    failed = 0
     for person_cluster in person_clusters:
-        clusters.extend(agent.find_duplicates(person_cluster))
-    log.info("Found %d duplicate clusters", len(clusters))
+        if len(person_cluster) > AGENT_MAX_CLUSTER_SIZE:
+            skipped_oversized += 1
+            log.info("skipped-oversized: cluster of %d persons > cap %d (e.g. %s) — name-collision blob",
+                     len(person_cluster), AGENT_MAX_CLUSTER_SIZE,
+                     ", ".join(p.name for p in person_cluster[:3]))
+            continue
+        try:
+            clusters.extend(agent.find_duplicates(person_cluster))
+        except Exception as e:  # keep the run alive; a repo-heavy cluster can overflow the context window
+            failed += 1
+            log.warning("agent-failed: cluster of %d persons (e.g. %s) — %s: %s",
+                        len(person_cluster), person_cluster[0].name, type(e).__name__, e)
+    log.info("Agent done: %d verdicts, %d clusters skipped-oversized, %d agent-failed",
+             len(clusters), skipped_oversized, failed)
 
     found = 0
     for cluster in clusters:

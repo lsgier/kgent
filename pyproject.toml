@@ -24,3 +24,7 @@ threshold = 0.95  # cosine similarity above which two persons are linked
 model = "Qwen/Qwen3-Embedding-8B"
 batch_size = 64   # persons per embedding request
 concurrency = 6   # parallel embedding requests
+
+[tool.kgent.agent]
+max_cluster_size = 25  # clusters larger than this are name-collision blobs, not
+                       # real duplicate sets; skip them (they also blow the LLM context window)
