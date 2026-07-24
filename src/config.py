@@ -8,6 +8,8 @@ load_dotenv()
 
 # Secrets and endpoints — machine-specific, kept out of git (.env).
 SPARQL_ENDPOINT = os.environ["SPARQL_ENDPOINT"]
+SPARQL_USER     = os.getenv("SPARQL_USER")
+SPARQL_PASSWORD = os.getenv("SPARQL_PASSWORD")
 LLM_BASE_URL = os.environ["LLM_BASE_URL"]
 LLM_API_KEY = os.environ["LLM_API_KEY"]
 LLM_MODEL = os.environ["LLM_MODEL"]

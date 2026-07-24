@@ -54,9 +54,12 @@ def _shorten(uri: str) -> str:
 
 
 class KnowledgeGraphRepository:
-    def __init__(self, endpoint: str, sparql_log: SPARQLLog | None = None):
+    def __init__(self, endpoint: str, sparql_log: SPARQLLog | None = None,
+                 user: str | None = None, password: str | None = None):
         self._sparql = SPARQLWrapper(endpoint)
         self._sparql.setReturnFormat(JSON)
+        if user and password:
+            self._sparql.setCredentials(user, password)
         self._sparql_log = sparql_log
 
     # Run a SPARQL query, logging it first if a SPARQLLog is configured.
