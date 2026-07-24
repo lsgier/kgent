@@ -121,6 +121,10 @@ class KnowledgeGraphRepository:
         for pred, field in _SCALAR_FIELDS.items():
             if pred in props:
                 fields[field] = props[pred][0]
+        # The graph stores ORCIDs as full URLs (https://orcid.org/0000-...), but the
+        # ontology/Person pattern expects the bare identifier. Normalise to the bare form.
+        if "orcid" in fields:
+            fields["orcid"] = fields["orcid"].rsplit("/", 1)[-1]
         for pred, field in _LIST_FIELDS.items():
             if pred in props:
                 fields[field] = props[pred]
