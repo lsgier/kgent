@@ -15,6 +15,24 @@ from repository import KnowledgeGraphRepository
 log = logging.getLogger(__name__)
 
 
+def _log_cluster_stats(clusters: list[list[Person]], total_persons: int) -> None:
+    sizes = sorted((len(c) for c in clusters), reverse=True)
+    clustered = sum(sizes)
+    if not sizes:
+        log.info("Found 0 candidate clusters (all %d persons are singletons)", total_persons)
+        return
+    hist: dict[int, int] = {}
+    for s in sizes:
+        hist[s] = hist.get(s, 0) + 1
+    hist_str = ", ".join(f"{size}:{count}" for size, count in sorted(hist.items()))
+    log.info(
+        "Found %d candidate clusters | %d/%d persons clustered (%d singletons) | "
+        "size min=%d max=%d mean=%.1f | size histogram (size:count) %s",
+        len(sizes), clustered, total_persons, total_persons - clustered,
+        sizes[-1], sizes[0], clustered / len(sizes), hist_str,
+    )
+
+
 def _pick_canonical(iris: list[str], persons_by_iri: dict[str, Person]) -> str:
     def rank(iri: str) -> tuple:
         p = persons_by_iri.get(iri)
@@ -41,7 +59,7 @@ def run() -> None:
         all_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
         k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY,
     )
-    log.info("Found %d candidate clusters", len(person_clusters))
+    _log_cluster_stats(person_clusters, total_persons=len(all_persons))
 
     log.info("Running deduplication agent...")
     clusters = []
