@@ -58,7 +58,7 @@ class DedupAgent:
 
     def find_duplicates(self, persons: list[Person]) -> list[DuplicateCluster]:
         user_prompt = json.dumps(
-            [p.model_dump() for p in persons],
+            [p.model_dump(exclude_defaults=True) for p in persons],
             indent=2,
             default=str,
         )
