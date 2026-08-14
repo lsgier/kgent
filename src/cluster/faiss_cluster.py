@@ -4,7 +4,13 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
 
-def cluster(embeddings: np.ndarray, k: int = 20, threshold: float = 0.95) -> list[list[int]]:
+def cluster(
+    embeddings: np.ndarray,
+    k: int = 20,
+    threshold: float = 0.95,
+    idf: np.ndarray | None = None,
+    name_similarity_penalty: float = 0.0,
+) -> list[list[int]]:
     """Return clusters as lists of indices into embeddings. Singletons excluded."""
     n = len(embeddings)
     norms  = np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10
@@ -18,7 +24,12 @@ def cluster(embeddings: np.ndarray, k: int = 20, threshold: float = 0.95) -> lis
     for i in range(n):
         for pos in range(1, k + 1):
             j = int(indices[i, pos])
-            if j != i and float(sims[i, pos]) >= threshold:
+            if j == i:
+                continue
+            effective_threshold = threshold
+            if idf is not None:
+                effective_threshold += name_similarity_penalty * (1 - min(idf[i], idf[j]))
+            if float(sims[i, pos]) >= effective_threshold:
                 rows.append(i)
                 cols.append(j)
 

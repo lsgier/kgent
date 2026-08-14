@@ -19,6 +19,8 @@ dependencies = [
 [tool.kgent.cluster]
 k = 20            # FAISS nearest neighbours per person
 threshold = 0.95  # cosine similarity above which two persons are linked
+name_similarity_penalty = 0.0  # raises the effective threshold for pairs sharing a common
+                               # name (IDF-weighted); 0.0 = no-op, reproduces flat `threshold`
 
 [tool.kgent.embedding]
 model = "Qwen/Qwen3-Embedding-8B"

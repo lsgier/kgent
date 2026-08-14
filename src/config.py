@@ -22,6 +22,7 @@ _params = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_t
 
 CLUSTER_K         = _params["cluster"]["k"]
 CLUSTER_THRESHOLD = _params["cluster"]["threshold"]
+CLUSTER_NAME_SIMILARITY_PENALTY = _params["cluster"]["name_similarity_penalty"]
 EMBEDDING_MODEL   = _params["embedding"]["model"]
 EMBED_BATCH_SIZE  = _params["embedding"]["batch_size"]
 EMBED_CONCURRENCY = _params["embedding"]["concurrency"]

@@ -5,7 +5,7 @@ from agent import DedupAgent
 from audit import AuditLog, LLMLog, SPARQLLog
 from cluster import cluster_persons
 from config import (
-    AGENT_MAX_CLUSTER_SIZE, AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE,
+    AGENT_MAX_CLUSTER_SIZE, AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_NAME_SIMILARITY_PENALTY, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE,
     EMBED_CONCURRENCY, EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL,
     SPARQL_ENDPOINT, SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD,
 )
@@ -57,7 +57,8 @@ def run() -> None:
     log.info("Clustering persons...")
     person_clusters = cluster_persons(
         all_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
-        k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY,
+        k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, name_similarity_penalty=CLUSTER_NAME_SIMILARITY_PENALTY,
+        batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY,
     )
     _log_cluster_stats(person_clusters, total_persons=len(all_persons))
 
