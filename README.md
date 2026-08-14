@@ -1,22 +1,17 @@
 ## Architecture
 
 ```mermaid
-flowchart LR
-    TS[(RDF Triple Store)]
-    EMB([Embedding API])
-    LLM([LLM])
-
-    Orchestrator -->|SPARQL SELECT| TS
-    TS -->|Person rows| Orchestrator
-    Orchestrator -->|all persons| Rules["Rule resolvers\n(deterministic bridges)"]
-    Rules -->|remaining persons| Cluster["Cluster\n(embed + FAISS ANN)"]
-    Cluster -->|batched text| EMB
-    EMB -->|vectors| Cluster
-    Cluster -->|candidate clusters| Orchestrator
-    Orchestrator -->|one cluster at a time| DedupAgent
-    DedupAgent <-->|prompt / structured output| LLM
-    DedupAgent -->|duplicate verdict| Orchestrator
-    Rules -.->|rule-based matches| Orchestrator
-    Orchestrator -.->|duplicate candidates for review| AuditLog[(audit.jsonl)]
+flowchart TD
+    Orchestrator -->|SPARQL SELECT| TS[(RDF Triple Store)]
     Orchestrator -.->|query log| SPARQLLog[(sparql.jsonl)]
+    TS -->|Person rows| Rules["Rule resolvers\n(deterministic bridges)"]
+    Rules -.->|rule-based matches| AuditLog[(audit.jsonl)]
+    Rules -->|remaining persons| Cluster["Cluster\n(embed + FAISS ANN)"]
+    Cluster <-->|batched text / vectors| EMB([Embedding API])
+    Cluster -->|candidate clusters| DedupAgent
+    DedupAgent <-->|prompt / structured output| LLM([LLM])
+    DedupAgent -.->|prompt/response log| LLMLog[(llm.jsonl)]
+    DedupAgent -.->|duplicate verdict| AuditLog
 ```
+
+Legend: solid arrow (`-->`) = pipeline data flow; dotted arrow (`-.->`) = logged / written to disk.
