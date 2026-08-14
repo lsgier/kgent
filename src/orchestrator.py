@@ -11,6 +11,7 @@ from config import (
 )
 from models import Person
 from repository import KnowledgeGraphRepository
+from rules import resolve_rule_based
 
 log = logging.getLogger(__name__)
 
@@ -54,13 +55,36 @@ def run() -> None:
     log.info("Found %d persons", len(all_persons))
     persons_by_iri = {p.iri: p for p in all_persons}
 
+    log.info("Resolving deterministic duplicates...")
+    rule_matches = resolve_rule_based(all_persons)
+    resolved_iris: set[str] = set()
+    rule_found = 0
+    for match in rule_matches:
+        canonical_iri = _pick_canonical(match.entities, persons_by_iri)
+        for dup_iri in match.entities:
+            if dup_iri == canonical_iri:
+                continue
+            audit.log_duplicate(
+                canonical=persons_by_iri[canonical_iri],
+                duplicate=persons_by_iri[dup_iri],
+                confidence=1.0,
+                reason=match.reason,
+                method="rule-based",
+            )
+            rule_found += 1
+        resolved_iris.update(match.entities)
+    log.info("Rule-based resolution: %d matches, %d duplicates found, %d persons removed from clustering pool",
+             len(rule_matches), rule_found, len(resolved_iris))
+
+    remaining_persons = [p for p in all_persons if p.iri not in resolved_iris]
+
     log.info("Clustering persons...")
     person_clusters = cluster_persons(
-        all_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
+        remaining_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
         k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, name_similarity_penalty=CLUSTER_NAME_SIMILARITY_PENALTY,
         batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY,
     )
-    _log_cluster_stats(person_clusters, total_persons=len(all_persons))
+    _log_cluster_stats(person_clusters, total_persons=len(remaining_persons))
 
     log.info("Running deduplication agent...")
     clusters = []
@@ -82,7 +106,7 @@ def run() -> None:
     log.info("Agent done: %d verdicts, %d clusters skipped-oversized, %d agent-failed",
              len(clusters), skipped_oversized, failed)
 
-    found = 0
+    llm_found = 0
     for cluster in clusters:
         if not cluster.is_duplicate:
             log.info("Skipping non-duplicate (certainty %.2f): %s", cluster.certainty, cluster.reason)
@@ -98,7 +122,9 @@ def run() -> None:
                 duplicate=duplicate,
                 confidence=cluster.certainty,
                 reason=cluster.reason,
+                method="llm",
             )
-            found += 1
+            llm_found += 1
 
-    log.info("Found %d duplicates, presented for review in %s (not merged)", found, AUDIT_LOG_PATH)
+    log.info("Found %d duplicates (%d rule-based, %d LLM), presented for review in %s (not merged)",
+             rule_found + llm_found, rule_found, llm_found, AUDIT_LOG_PATH)

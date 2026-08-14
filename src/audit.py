@@ -49,10 +49,12 @@ class AuditLog:
         duplicate,
         confidence: float,
         reason: str,
+        method: str = "llm",
     ) -> None:
         entry: dict = {
             "timestamp": _now(),
             "operation": "duplicate_found",
+            "method": method,
             "confidence": confidence,
             "reason": reason,
             "canonical": canonical.model_dump(),
