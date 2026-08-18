@@ -4,7 +4,7 @@
 flowchart TD
     Orchestrator -->|SPARQL SELECT| TS[(RDF Triple Store)]
     Orchestrator -.->|query log| SPARQLLog[(sparql.jsonl)]
-    PersonsCache[(persons_cache.jsonl)] -.->|optional, skips SPARQL if present| Orchestrator
+    Orchestrator <-.->|read if present, written after a live SPARQL fetch| PersonsCache[(persons_cache.jsonl)]
     TS -->|Person rows| Rules["Rule resolvers\n(deterministic bridges)"]
     Rules -.->|rule-based matches| AuditLog[(audit.jsonl)]
     Rules -->|remaining persons| Cluster["Cluster\n(embed + FAISS ANN)"]

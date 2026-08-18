@@ -3,7 +3,7 @@ from pathlib import Path
 
 from agent import DedupAgent
 from audit import AuditLog, LLMLog, SPARQLLog
-from cache import load_persons
+from cache import load_persons, save_persons
 from cluster import cluster_persons
 from config import (
     AGENT_MAX_CLUSTER_SIZE, AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_NAME_SIMILARITY_PENALTY, CLUSTER_THRESHOLD,
@@ -63,6 +63,8 @@ def run() -> None:
         log.info("Fetching persons...")
         all_persons = repo.get_persons()
         log.info("Found %d persons", len(all_persons))
+        save_persons(all_persons, Path(PERSONS_CACHE_PATH))
+        log.info("Cached %d persons to %s", len(all_persons), PERSONS_CACHE_PATH)
     persons_by_iri = {p.iri: p for p in all_persons}
 
     found_duplicates: list[dict] = []
