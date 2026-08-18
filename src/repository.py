@@ -96,6 +96,7 @@ class KnowledgeGraphRepository:
                 if person:
                     persons.append(person)
             page += 1
+            log.info("Fetched %d persons so far (page %d)", len(persons), page)
         return persons
 
     # Collapse (subject, predicate, object) rows into {iri: {prefixed_predicate: [values]}}.
