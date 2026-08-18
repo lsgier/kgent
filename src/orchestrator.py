@@ -3,11 +3,12 @@ from pathlib import Path
 
 from agent import DedupAgent
 from audit import AuditLog, LLMLog, SPARQLLog
+from cache import load_persons
 from cluster import cluster_persons
 from config import (
     AGENT_MAX_CLUSTER_SIZE, AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_NAME_SIMILARITY_PENALTY, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE,
     EMBED_CONCURRENCY, EMBED_FIELDS, EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL,
-    SPARQL_ENDPOINT, SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD,
+    PERSONS_CACHE_PATH, SPARQL_ENDPOINT, SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD, USE_PERSONS_CACHE,
 )
 from models import Person
 from repository import KnowledgeGraphRepository
@@ -50,9 +51,17 @@ def run() -> None:
     agent = DedupAgent(model_name=LLM_MODEL, base_url=LLM_BASE_URL, api_key=LLM_API_KEY, llm_log=llm_log)
     audit = AuditLog(Path(AUDIT_LOG_PATH))
 
-    log.info("Fetching persons...")
-    all_persons = repo.get_persons()
-    log.info("Found %d persons", len(all_persons))
+    all_persons = []
+    if USE_PERSONS_CACHE:
+        all_persons = load_persons(Path(PERSONS_CACHE_PATH))
+        if all_persons:
+            log.info("Loaded %d persons from cache (%s)", len(all_persons), PERSONS_CACHE_PATH)
+        else:
+            log.info("Cache empty or missing (%s), falling back to SPARQL", PERSONS_CACHE_PATH)
+    if not all_persons:
+        log.info("Fetching persons...")
+        all_persons = repo.get_persons()
+        log.info("Found %d persons", len(all_persons))
     persons_by_iri = {p.iri: p for p in all_persons}
 
     found_duplicates: list[dict] = []
