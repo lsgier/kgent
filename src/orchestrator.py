@@ -106,19 +106,25 @@ def run() -> None:
     clusters = []
     skipped_oversized = 0
     failed = 0
-    for person_cluster in person_clusters:
+    total_clusters = len(person_clusters)
+    next_log_pct = 10
+    for i, person_cluster in enumerate(person_clusters, 1):
         if len(person_cluster) > AGENT_MAX_CLUSTER_SIZE:
             skipped_oversized += 1
             log.info("skipped-oversized: cluster of %d persons > cap %d (e.g. %s) — name-collision blob",
                      len(person_cluster), AGENT_MAX_CLUSTER_SIZE,
                      ", ".join(p.name for p in person_cluster[:3]))
-            continue
-        try:
-            clusters.extend(agent.find_duplicates(person_cluster))
-        except Exception as e:  # keep the run alive; a repo-heavy cluster can overflow the context window
-            failed += 1
-            log.warning("agent-failed: cluster of %d persons (e.g. %s) — %s: %s",
-                        len(person_cluster), person_cluster[0].name, type(e).__name__, e)
+        else:
+            try:
+                clusters.extend(agent.find_duplicates(person_cluster))
+            except Exception as e:  # keep the run alive; a repo-heavy cluster can overflow the context window
+                failed += 1
+                log.warning("agent-failed: cluster of %d persons (e.g. %s) — %s: %s",
+                            len(person_cluster), person_cluster[0].name, type(e).__name__, e)
+        pct = i * 100 // total_clusters
+        if pct >= next_log_pct:
+            log.info("Agent progress: %d/%d clusters (%d%%)", i, total_clusters, pct)
+            next_log_pct += 10
     log.info("Agent done: %d verdicts, %d clusters skipped-oversized, %d agent-failed",
              len(clusters), skipped_oversized, failed)
 
