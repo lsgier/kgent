@@ -6,7 +6,7 @@ from audit import AuditLog, LLMLog, SPARQLLog
 from cluster import cluster_persons
 from config import (
     AGENT_MAX_CLUSTER_SIZE, AUDIT_LOG_PATH, CLUSTER_K, CLUSTER_NAME_SIMILARITY_PENALTY, CLUSTER_THRESHOLD, EMBED_BATCH_SIZE,
-    EMBED_CONCURRENCY, EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL,
+    EMBED_CONCURRENCY, EMBED_FIELDS, EMBEDDING_MODEL, LLM_API_KEY, LLM_BASE_URL, LLM_LOG_PATH, LLM_MODEL,
     SPARQL_ENDPOINT, SPARQL_LOG_PATH, SPARQL_USER, SPARQL_PASSWORD,
 )
 from models import Person
@@ -82,7 +82,7 @@ def run() -> None:
     person_clusters = cluster_persons(
         remaining_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
         k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, name_similarity_penalty=CLUSTER_NAME_SIMILARITY_PENALTY,
-        batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY,
+        batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY, fields=EMBED_FIELDS,
     )
     _log_cluster_stats(person_clusters, total_persons=len(remaining_persons))
 

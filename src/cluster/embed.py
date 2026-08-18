@@ -7,17 +7,18 @@ import numpy as np
 from models import Person
 
 
-def _text(p: Person) -> str:
-    parts = [p.name]
-    if p.bio:      parts.append(p.bio)
-    if p.location: parts.append(p.location)
-    if p.company:  parts.append(p.company)
+def _text(p: Person, fields: list[str]) -> str:
+    parts = []
+    for field in fields:
+        value = getattr(p, field)
+        if value:
+            parts.append(value)
     return " ".join(parts)
 
 
 def embed_persons(persons: list[Person], api_url: str, api_key: str, model: str,
-                  batch_size: int, concurrency: int) -> np.ndarray:
-    texts   = [_text(p) for p in persons]
+                  batch_size: int, concurrency: int, fields: list[str]) -> np.ndarray:
+    texts   = [_text(p, fields) for p in persons]
     batches = [texts[i: i + batch_size] for i in range(0, len(texts), batch_size)]
     results: dict[int, list] = {}
 
