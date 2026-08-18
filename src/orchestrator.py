@@ -133,7 +133,7 @@ def run() -> None:
     llm_found = 0
     for cluster in clusters:
         if not cluster.is_duplicate:
-            log.info("Skipping non-duplicate (certainty %.2f): %s", cluster.certainty, cluster.reason)
+            log.info("Skipping non-duplicate: %s", cluster.reason)
             continue
         # The agent is contractually supposed to echo back exactly the input IRIs, but
         # occasionally hallucinates a malformed one (e.g. a doubled "https" prefix) --
