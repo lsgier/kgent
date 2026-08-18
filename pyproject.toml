@@ -31,5 +31,4 @@ fields = ["name", "location"]  # Person fields concatenated into the embedded te
 enabled = true  # load persons from PERSONS_CACHE_PATH instead of SPARQL;
 
 [tool.kgent.agent]
-max_cluster_size = 25  # clusters larger than this are name-collision blobs, not
-                       # real duplicate sets; skip them (they also blow the LLM context window)
+max_cluster_size = 25  # skip them, they blow past the LLM context window
