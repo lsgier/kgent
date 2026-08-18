@@ -18,14 +18,17 @@ dependencies = [
 # Tunable parameters (committed for reproducibility; secrets/endpoints stay in .env).
 [tool.kgent.cluster]
 k = 20            # FAISS nearest neighbours per person
-threshold = 0.95  # cosine similarity above which two persons are linked
-name_similarity_penalty = 0.0  # raises the effective threshold for pairs sharing a common
-                               # name (IDF-weighted); 0.0 = no-op, reproduces flat `threshold`
+threshold = 0.99  # cosine similarity above which two persons are linked
+name_similarity_penalty = 0.02  # raises the effective threshold for pairs sharing a common name; 0.0 = no-op
 
 [tool.kgent.embedding]
 model = "Qwen/Qwen3-Embedding-8B"
 batch_size = 64   # persons per embedding request
 concurrency = 6   # parallel embedding requests
+fields = ["name", "location"]  # Person fields concatenated into the embedded text
+
+[tool.kgent.cache]
+enabled = true  # load persons from PERSONS_CACHE_PATH instead of SPARQL;
 
 [tool.kgent.agent]
 max_cluster_size = 25  # clusters larger than this are name-collision blobs, not

@@ -16,6 +16,8 @@ LLM_MODEL = os.environ["LLM_MODEL"]
 AUDIT_LOG_PATH  = os.getenv("AUDIT_LOG_PATH", "audit.jsonl")
 SPARQL_LOG_PATH = os.getenv("SPARQL_LOG_PATH", "sparql.jsonl")
 LLM_LOG_PATH    = os.getenv("LLM_LOG_PATH", "llm.jsonl")
+PERSONS_CACHE_PATH = os.getenv("PERSONS_CACHE_PATH", "persons_cache.jsonl")
+EMBEDDING_CACHE_PATH = os.getenv("EMBEDDING_CACHE_PATH", "embedding_cache.npz")
 
 # Tunable parameters — committed in pyproject.toml [tool.kgent] for reproducibility.
 _params = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())["tool"]["kgent"]
@@ -26,4 +28,6 @@ CLUSTER_NAME_SIMILARITY_PENALTY = _params["cluster"]["name_similarity_penalty"]
 EMBEDDING_MODEL   = _params["embedding"]["model"]
 EMBED_BATCH_SIZE  = _params["embedding"]["batch_size"]
 EMBED_CONCURRENCY = _params["embedding"]["concurrency"]
+EMBED_FIELDS      = _params["embedding"]["fields"]
+USE_PERSONS_CACHE = _params["cache"]["enabled"]
 AGENT_MAX_CLUSTER_SIZE = _params["agent"]["max_cluster_size"]
