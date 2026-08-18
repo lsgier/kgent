@@ -55,6 +55,8 @@ def run() -> None:
     log.info("Found %d persons", len(all_persons))
     persons_by_iri = {p.iri: p for p in all_persons}
 
+    found_duplicates: list[dict] = []
+
     log.info("Resolving deterministic duplicates...")
     rule_matches = resolve_rule_based(all_persons)
     resolved_iris: set[str] = set()
@@ -71,6 +73,9 @@ def run() -> None:
                 reason=match.reason,
                 method="rule-based",
             )
+            found_duplicates.append({
+                "confidence": 1.0, "canonical": canonical_iri, "duplicate": dup_iri, "method": "rule-based",
+            })
             rule_found += 1
         resolved_iris.update(match.entities)
     log.info("Rule-based resolution: %d matches, %d duplicates found, %d persons removed from clustering pool",
@@ -111,8 +116,17 @@ def run() -> None:
         if not cluster.is_duplicate:
             log.info("Skipping non-duplicate (certainty %.2f): %s", cluster.certainty, cluster.reason)
             continue
-        canonical_iri = _pick_canonical(cluster.entities, persons_by_iri)
-        duplicate_iris = [iri for iri in cluster.entities if iri != canonical_iri]
+        # The agent is contractually supposed to echo back exactly the input IRIs, but
+        # occasionally hallucinates a malformed one (e.g. a doubled "https" prefix) --
+        # untrusted LLM output, so validate at this boundary rather than crash the run.
+        valid_entities = [iri for iri in cluster.entities if iri in persons_by_iri]
+        if len(valid_entities) < len(cluster.entities):
+            log.warning("agent returned unknown entity IRI(s) not in the input cluster, ignoring: %s",
+                        set(cluster.entities) - set(valid_entities))
+        if len(valid_entities) < 2:
+            continue
+        canonical_iri = _pick_canonical(valid_entities, persons_by_iri)
+        duplicate_iris = [iri for iri in valid_entities if iri != canonical_iri]
 
         for dup_iri in duplicate_iris:
             canonical = persons_by_iri[canonical_iri]
@@ -124,7 +138,15 @@ def run() -> None:
                 reason=cluster.reason,
                 method="llm",
             )
+            found_duplicates.append({
+                "confidence": cluster.certainty, "canonical": canonical_iri, "duplicate": dup_iri, "method": "llm",
+            })
             llm_found += 1
 
     log.info("Found %d duplicates (%d rule-based, %d LLM), presented for review in %s (not merged)",
              rule_found + llm_found, rule_found, llm_found, AUDIT_LOG_PATH)
+
+    found_duplicates.sort(key=lambda d: d["confidence"], reverse=True)
+    print(f"\n{len(found_duplicates)} duplicate candidates, sorted by confidence (highest first):")
+    for d in found_duplicates:
+        print(f"  {d['confidence']:.2f}  [{d['method']:10s}]  {d['duplicate']}  ~  {d['canonical']}")
