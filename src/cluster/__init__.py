@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from models import Person
@@ -16,11 +18,13 @@ def cluster_persons(
     batch_size: int,
     concurrency: int,
     fields: list[str],
+    cache_path: Path,
     name_similarity_penalty: float = 0.0,
 ) -> list[list[Person]]:
     """Embed and cluster persons. Returns clusters (singletons excluded)."""
     embeddings = embed_persons(persons, api_url, api_key=api_key, model=model,
-                               batch_size=batch_size, concurrency=concurrency, fields=fields)
+                               batch_size=batch_size, concurrency=concurrency, fields=fields,
+                               cache_path=cache_path)
     idf = None
     if name_similarity_penalty:
         name_idf = compute_name_idf(persons)

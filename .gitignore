@@ -8,3 +8,4 @@ dist/
 .python-version
 *.log
 *.jsonl
+*.npz
