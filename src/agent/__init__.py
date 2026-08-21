@@ -1,3 +1,3 @@
-from agent.dedup.agent import DedupAgent
+from agent.dedup_agent import DedupAgent
 
 __all__ = ["DedupAgent"]
