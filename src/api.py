@@ -11,6 +11,9 @@ from pydantic import BaseModel
 
 import orchestrator
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(name)s — %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # one INFO line per embedding/LLM HTTP call otherwise
+
 log = logging.getLogger(__name__)
 app = FastAPI(title="kgent dedup service")
 
