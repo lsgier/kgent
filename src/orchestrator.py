@@ -147,8 +147,9 @@ def run(
              "%s (not merged)",
              len(groups), len(rule_matches), llm_found, sum(len(g.entities) for g in groups), audit_log_path)
 
-    groups.sort(key=lambda g: g.confidence, reverse=True)
-    print(f"\n{len(groups)} duplicate groups, sorted by confidence (highest first):")
+    method_order = {"rule-based": 0, "llm": 1}
+    groups.sort(key=lambda g: (method_order.get(g.method, 99), -g.confidence))
+    print(f"\n{len(groups)} duplicate groups, sorted by method then confidence (highest first):")
     for g in groups:
         print(f"  {g.confidence:.2f}  [{g.method:10s}]  {', '.join(g.entities)}")
 
