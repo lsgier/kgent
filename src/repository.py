@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from pydantic import ValidationError
-from SPARQLWrapper import SPARQLWrapper, JSON
+from SPARQLWrapper import SPARQLWrapper, JSON, POST
 
 from audit import SPARQLLog
 from models import Person
@@ -54,12 +54,15 @@ def _shorten(uri: str) -> str:
 
 
 class KnowledgeGraphRepository:
-    def __init__(self, endpoint: str, sparql_log: SPARQLLog | None = None,
+    def __init__(self, endpoint: str, update_endpoint: str | None = None, sparql_log: SPARQLLog | None = None,
                  user: str | None = None, password: str | None = None):
         self._sparql = SPARQLWrapper(endpoint)
         self._sparql.setReturnFormat(JSON)
+        self._sparql_update = SPARQLWrapper(update_endpoint or endpoint)
+        self._sparql_update.setMethod(POST)
         if user and password:
             self._sparql.setCredentials(user, password)
+            self._sparql_update.setCredentials(user, password)
         self._sparql_log = sparql_log
 
     # Run a SPARQL query, logging it first if a SPARQLLog is configured.
@@ -71,6 +74,13 @@ class KnowledgeGraphRepository:
         if not isinstance(result, dict):
             raise ValueError(f"Unexpected SPARQL response type: {type(result)}")
         return result["results"]["bindings"]
+
+    # Run a SPARQL UPDATE (e.g. INSERT DATA), logging it first if a SPARQLLog is configured.
+    def update(self, sparql: str) -> None:
+        if self._sparql_log:
+            self._sparql_log.log("update", sparql)
+        self._sparql_update.setQuery(sparql)
+        self._sparql_update.query()
 
     def get_persons(self) -> list[Person]:
         persons: list[Person] = []

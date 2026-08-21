@@ -1261,6 +1261,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
+    { name = "rdflib" },
     { name = "scipy" },
     { name = "sparqlwrapper" },
 ]
@@ -1273,6 +1274,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.1" },
     { name = "pydantic-ai", specifier = ">=1.83.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "rdflib", specifier = ">=7.6.0" },
     { name = "scipy", specifier = ">=1.18.0" },
     { name = "sparqlwrapper", specifier = ">=2.0.0" },
 ]

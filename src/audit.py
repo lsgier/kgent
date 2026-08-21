@@ -43,22 +43,20 @@ class AuditLog:
     def __init__(self, path: Path):
         self._path = path
 
-    def log_duplicate(
+    def log_group(
         self,
-        canonical,
-        duplicate,
+        entities: list[str],
         confidence: float,
         reason: str,
         method: str = "llm",
     ) -> None:
         entry: dict = {
             "timestamp": _now(),
-            "operation": "duplicate_found",
+            "operation": "duplicate_group",
             "method": method,
             "confidence": confidence,
             "reason": reason,
-            "canonical": canonical.model_dump(),
-            "duplicate": duplicate.model_dump(),
+            "entities": entities,
         }
         _append(self._path, entry)
-        log.info("[audit] duplicate found: %s ~ %s (confidence %.2f)", duplicate.iri, canonical.iri, confidence)
+        log.info("[audit] duplicate group (%s): %s (confidence %.2f)", method, entities, confidence)
