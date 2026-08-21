@@ -7,7 +7,9 @@ flowchart TD
     Orchestrator <-.->|read if present, written after a live SPARQL fetch| PersonsCache[(persons_cache.jsonl)]
     TS -->|Person rows| Rules["Rule resolvers\n(deterministic bridges)"]
     Rules -.->|rule-based matches| AuditLog[(audit.jsonl)]
-    Rules -->|remaining persons| Cluster["Cluster\n(embed + FAISS ANN)"]
+    Rules -->|remaining persons| IDF["Name-frequency IDF\n(per-name weight)"]
+    Rules -->|remaining persons| Cluster["Cluster\n(embed + FAISS k-NN)"]
+    IDF -->|idf-adjusted threshold| Cluster
     Cluster <-->|batched text / vectors| EMB([Embedding API])
     Cluster <-.->|content-addressed cache| EmbeddingCache[(embedding_cache.npz)]
     Cluster -->|candidate clusters| DedupAgent
