@@ -37,27 +37,42 @@ def _log_cluster_stats(clusters: list[list[Person]], total_persons: int) -> None
     )
 
 
-def run() -> None:
-    sparql_log = SPARQLLog(Path(SPARQL_LOG_PATH))
-    repo = KnowledgeGraphRepository(SPARQL_ENDPOINT, update_endpoint=SPARQL_UPDATE_ENDPOINT, sparql_log=sparql_log,
+def run(
+    *,
+    sparql_endpoint: str = SPARQL_ENDPOINT,
+    sparql_update_endpoint: str = SPARQL_UPDATE_ENDPOINT,
+    dedup_graph: str = DEDUP_GRAPH,
+    cluster_k: int = CLUSTER_K,
+    cluster_threshold: float = CLUSTER_THRESHOLD,
+    cluster_name_similarity_penalty: float = CLUSTER_NAME_SIMILARITY_PENALTY,
+    audit_log_path: str = AUDIT_LOG_PATH,
+    sparql_log_path: str = SPARQL_LOG_PATH,
+    llm_log_path: str = LLM_LOG_PATH,
+    persons_cache_path: str = PERSONS_CACHE_PATH,
+) -> dict:
+    for p in (audit_log_path, sparql_log_path, llm_log_path, persons_cache_path):
+        Path(p).parent.mkdir(parents=True, exist_ok=True)
+
+    sparql_log = SPARQLLog(Path(sparql_log_path))
+    repo = KnowledgeGraphRepository(sparql_endpoint, update_endpoint=sparql_update_endpoint, sparql_log=sparql_log,
                                     user=SPARQL_USER, password=SPARQL_PASSWORD)
-    llm_log = LLMLog(Path(LLM_LOG_PATH))
+    llm_log = LLMLog(Path(llm_log_path))
     agent = DedupAgent(model_name=LLM_MODEL, base_url=LLM_BASE_URL, api_key=LLM_API_KEY, llm_log=llm_log)
-    audit = AuditLog(Path(AUDIT_LOG_PATH))
+    audit = AuditLog(Path(audit_log_path))
 
     all_persons = []
     if USE_PERSONS_CACHE:
-        all_persons = load_persons(Path(PERSONS_CACHE_PATH))
+        all_persons = load_persons(Path(persons_cache_path))
         if all_persons:
-            log.info("Loaded %d persons from cache (%s)", len(all_persons), PERSONS_CACHE_PATH)
+            log.info("Loaded %d persons from cache (%s)", len(all_persons), persons_cache_path)
         else:
-            log.info("Cache empty or missing (%s), falling back to SPARQL", PERSONS_CACHE_PATH)
+            log.info("Cache empty or missing (%s), falling back to SPARQL", persons_cache_path)
     if not all_persons:
         log.info("Fetching persons...")
         all_persons = repo.get_persons()
         log.info("Found %d persons", len(all_persons))
-        save_persons(all_persons, Path(PERSONS_CACHE_PATH))
-        log.info("Cached %d persons to %s", len(all_persons), PERSONS_CACHE_PATH)
+        save_persons(all_persons, Path(persons_cache_path))
+        log.info("Cached %d persons to %s", len(all_persons), persons_cache_path)
     persons_by_iri = {p.iri: p for p in all_persons}
 
     groups: list[DuplicateGroup] = []
@@ -77,7 +92,7 @@ def run() -> None:
     log.info("Clustering persons...")
     person_clusters = cluster_persons(
         remaining_persons, api_url=LLM_BASE_URL + "/embeddings", api_key=LLM_API_KEY, model=EMBEDDING_MODEL,
-        k=CLUSTER_K, threshold=CLUSTER_THRESHOLD, name_similarity_penalty=CLUSTER_NAME_SIMILARITY_PENALTY,
+        k=cluster_k, threshold=cluster_threshold, name_similarity_penalty=cluster_name_similarity_penalty,
         batch_size=EMBED_BATCH_SIZE, concurrency=EMBED_CONCURRENCY, fields=EMBED_FIELDS,
         cache_path=Path(EMBEDDING_CACHE_PATH),
     )
@@ -130,11 +145,19 @@ def run() -> None:
 
     log.info("Found %d duplicate groups (%d rule-based, %d LLM) covering %d entities, presented for review in "
              "%s (not merged)",
-             len(groups), len(rule_matches), llm_found, sum(len(g.entities) for g in groups), AUDIT_LOG_PATH)
+             len(groups), len(rule_matches), llm_found, sum(len(g.entities) for g in groups), audit_log_path)
 
     groups.sort(key=lambda g: g.confidence, reverse=True)
     print(f"\n{len(groups)} duplicate groups, sorted by confidence (highest first):")
     for g in groups:
         print(f"  {g.confidence:.2f}  [{g.method:10s}]  {', '.join(g.entities)}")
 
-    write_groups(groups, repo, DEDUP_GRAPH)
+    write_groups(groups, repo, dedup_graph)
+
+    return {
+        "groups_found": len(groups),
+        "rule_based_groups": len(rule_matches),
+        "llm_groups": llm_found,
+        "entities_covered": sum(len(g.entities) for g in groups),
+        "dedup_graph": dedup_graph,
+    }
